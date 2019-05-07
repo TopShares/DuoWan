@@ -11,6 +11,7 @@ class Crawler:
 
     def __init__(self, urls, max_workers=1):
         self.urls = urls
+        self.folder = ''
         self.fetching = asyncio.Queue()
         self.max_workers = max_workers
         self.headers = {
@@ -44,38 +45,38 @@ class Crawler:
 
             # print(f'Fetch worker {i} is fetching a URL: {url}')
             async with aiohttp.ClientSession() as session:
-                picPageUrlList = await self.fetch(session,url)
-                picUrlList = await self.process(session, picPageUrlList)
-                await self.DownloadImg(session, picUrlList)
+                res = await self.fetch(session,url)
+                # picUrlList = await self.process(session, picPageUrlList)
+                await self.DownloadImg(session, res)
 
     async def fetch(self,session, url):
         print("Fetching URL: " + url)
-        url= url.replace('com','cn')
+        newUrl= url.replace('com','cn')
         self.headers = {
         'User-Agent': 'Mozilla/5.0 (Linux; U; Android 8.1.0; zh-cn; OE106 Build/OPM1.171019.026) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/9.2 Mobile Safari/537.36',
         'Referer': url,
         }
-        html = await self.getHtmlText(session, url)
+
+        html = await self.getHtmlText(session, newUrl)
         a = re.findall('imgJson = ([\s\S]*?);', html.decode())
         # print(a)
         # print(type(a))
         # print(a[0])
         jsonp = json.loads(a[0])
-        folder = jsonp['gallery_title']
+        self.folder = jsonp['gallery_title']
         picInfo = jsonp['picInfo']
-        print(len(picInfo))
-        print(folder)
         res = []
         for i in picInfo:
             tmp = {}
-            tmp['add_intro'] = i['add_intro']
+            tmp['intro'] = i['add_intro']
             tmp['url'] = i['url']
             res.append(tmp)
             '''
-            [{'add_intro': '总比打呼噜好', 'url': 'http://s1.dwstatic.com/group1/M00/6A/E5/2a17d8dfe3b8c4f1118ae54332981992.jpg'}, {'add_intro': '最耐热的昆虫', 'url': 'http://s1.dwstatic.com/group1/M00/52/ED/3bab732d8ec878177a9bab6eaa1bac3b.jpg'}]
+            [{'intro': '总比打呼噜好', 'url': 'XXXXX.jpg'},
+             {'intro': '最耐热的昆虫', 'url': 'XXXXX.jpg'}]
             '''
         # print(res)
-        exit()
+        return res
         # pattern = re.compile('上一页</li><li>([\s\S]*?)</li>')
         # allPage = re.findall(pattern, html)
         # allPage = (allPage[0]).split('/')[1]
@@ -106,16 +107,21 @@ class Crawler:
         return tmp
 
     # download Pic
-    async def DownloadImg(self, session, picUrlList):
-        for picUrl in picUrlList:
+    async def DownloadImg(self, session, res):
+        for i in res:
+            intro = i['intro']
+            picUrl = i['url']
+            tmp = picUrl.split('/')[-2:]
+            extend = picUrl.split('.')[-1:]
+            folder = './' + self.folder
             async with session.get(picUrl, headers=self.headers, timeout=15, verify_ssl=False) as response:
                 print('download picUrl: ' + picUrl)
                 try:
                     img_response = await response.read()
                     tmp = picUrl.split('/')[-2:]
-                    folder = './' + tmp[0]
-                    file = folder +'/'+ tmp[1]
-
+                    extend = picUrl.split('.')[-1:]
+                    folder = './' + self.folder
+                    file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
                     isExists = os.path.exists(folder)
                     if not isExists:
                         os.makedirs(folder)
@@ -161,8 +167,12 @@ def test():
             jsonp = json.loads(data[0])          # read file to json
         urlList = []
         gallerys = jsonp['gallerys']
+        index = 0
         for i in gallerys:
             urlList.append(i['url'])
+            index+=1
+            if index == 5:
+                break
         # print(urlList)
         print('All urlPage is: ', len(urlList))
         c = Crawler(urlList)
