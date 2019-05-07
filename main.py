@@ -9,7 +9,7 @@ from lxml import etree
 
 class Crawler:
 
-    def __init__(self, urls, max_workers=1):
+    def __init__(self, urls, max_workers=8):
         self.urls = urls
         self.folder = ''
         self.fetching = asyncio.Queue()
@@ -114,22 +114,26 @@ class Crawler:
             tmp = picUrl.split('/')[-2:]
             extend = picUrl.split('.')[-1:]
             folder = './' + self.folder
-            async with session.get(picUrl, headers=self.headers, timeout=15, verify_ssl=False) as response:
-                print('download picUrl: ' + picUrl)
-                try:
-                    img_response = await response.read()
-                    tmp = picUrl.split('/')[-2:]
-                    extend = picUrl.split('.')[-1:]
-                    folder = './' + self.folder
-                    file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
-                    isExists = os.path.exists(folder)
-                    if not isExists:
-                        os.makedirs(folder)
-                    with open(file, 'wb') as f:
-                        f.write(img_response)
-                except Exception as e:
-                    print(e)
-                    pass
+
+            isExists = os.path.exists(folder)
+            if not isExists:
+                os.makedirs(folder)
+            file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
+            isFileExists = os.path.exists(file)
+            if not isFileExists:
+                async with session.get(picUrl, headers=self.headers, timeout=15, verify_ssl=False) as response:
+                    print('download picUrl: ' + picUrl)
+                    try:
+                        img_response = await response.read()
+                        # tmp = picUrl.split('/')[-2:]
+                        # extend = picUrl.split('.')[-1:]
+                        # folder = './' + self.folder
+                        
+                        with open(file, 'wb') as f:
+                            f.write(img_response)
+                    except Exception as e:
+                        print(e)
+                        pass
 
     # get html text
     async def getHtmlText(self, session, url):
