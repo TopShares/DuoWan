@@ -59,29 +59,19 @@ class Crawler:
 
         html = await self.getHtmlText(session, newUrl)
         a = re.findall('imgJson = ([\s\S]*?);', html.decode())
-        # print(a)
-        # print(type(a))
-        # print(a[0])
         jsonp = json.loads(a[0])
-        self.folder = jsonp['gallery_title']
         picInfo = jsonp['picInfo']
+        data = {
+            'folder':jsonp['gallery_title']
+        }
         res = []
         for i in picInfo:
             tmp = {}
             tmp['intro'] = i['add_intro']
             tmp['url'] = i['url']
             res.append(tmp)
-            '''
-            [{'intro': '总比打呼噜好', 'url': 'XXXXX.jpg'},
-             {'intro': '最耐热的昆虫', 'url': 'XXXXX.jpg'}]
-            '''
-        # print(res)
-        return res
-        # pattern = re.compile('上一页</li><li>([\s\S]*?)</li>')
-        # allPage = re.findall(pattern, html)
-        # allPage = (allPage[0]).split('/')[1]
-        # picUrlList = [re.sub(r'(\d+)(?=.htm)', str(e), url) for e in range(1,int(allPage)+1)]
-        # return picUrlList
+        data['res'] = res
+        return data
 
     # process pic url
     async def process(self, session, picUrlList):
@@ -107,13 +97,14 @@ class Crawler:
         return tmp
 
     # download Pic
-    async def DownloadImg(self, session, res):
-        for i in res:
+    async def DownloadImg(self, session, data):
+        print(data['folder'])
+        for i in data['res']:
             intro = i['intro']
             picUrl = i['url']
             tmp = picUrl.split('/')[-2:]
             extend = picUrl.split('.')[-1:]
-            folder = './' + self.folder
+            folder = './' + data['folder']
 
             isExists = os.path.exists(folder)
             if not isExists:
@@ -125,10 +116,6 @@ class Crawler:
                     print('download picUrl: ' + picUrl)
                     try:
                         img_response = await response.read()
-                        # tmp = picUrl.split('/')[-2:]
-                        # extend = picUrl.split('.')[-1:]
-                        # folder = './' + self.folder
-                        
                         with open(file, 'wb') as f:
                             f.write(img_response)
                     except Exception as e:
@@ -171,12 +158,8 @@ def test():
             jsonp = json.loads(data[0])          # read file to json
         urlList = []
         gallerys = jsonp['gallerys']
-        index = 0
         for i in gallerys:
             urlList.append(i['url'])
-            index+=1
-            if index == 5:
-                break
         # print(urlList)
         print('All urlPage is: ', len(urlList))
         c = Crawler(urlList)
