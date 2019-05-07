@@ -103,7 +103,7 @@ class Crawler:
             picUrl = i['url']
             tmp = picUrl.split('/')[-2:]
             extend = picUrl.split('.')[-1:]
-            folder = './' + data['folder']
+            folder = './pic/' + data['folder']
 
             isExists = os.path.exists(folder)
             if not isExists:
