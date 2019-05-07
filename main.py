@@ -1,6 +1,7 @@
 # encoding:utf-8
 import re
 import os
+import json
 import time
 import aiohttp
 import asyncio
@@ -8,7 +9,7 @@ from lxml import etree
 
 class Crawler:
 
-    def __init__(self, urls, max_workers=8):
+    def __init__(self, urls, max_workers=1):
         self.urls = urls
         self.fetching = asyncio.Queue()
         self.max_workers = max_workers
@@ -48,13 +49,38 @@ class Crawler:
                 await self.DownloadImg(session, picUrlList)
 
     async def fetch(self,session, url):
-        # print("Fetching URL: " + url);
+        print("Fetching URL: " + url)
+        url= url.replace('com','cn')
+        self.headers = {
+        'User-Agent': 'Mozilla/5.0 (Linux; U; Android 8.1.0; zh-cn; OE106 Build/OPM1.171019.026) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/9.2 Mobile Safari/537.36',
+        'Referer': url,
+        }
         html = await self.getHtmlText(session, url)
-        pattern = re.compile('上一页</li><li>([\s\S]*?)</li>')
-        allPage = re.findall(pattern, html)
-        allPage = (allPage[0]).split('/')[1]
-        picUrlList = [re.sub(r'(\d+)(?=.htm)', str(e), url) for e in range(1,int(allPage)+1)]
-        return picUrlList
+        a = re.findall('imgJson = ([\s\S]*?);', html.decode())
+        # print(a)
+        # print(type(a))
+        # print(a[0])
+        jsonp = json.loads(a[0])
+        folder = jsonp['gallery_title']
+        picInfo = jsonp['picInfo']
+        print(len(picInfo))
+        print(folder)
+        res = []
+        for i in picInfo:
+            tmp = {}
+            tmp['add_intro'] = i['add_intro']
+            tmp['url'] = i['url']
+            res.append(tmp)
+            '''
+            [{'add_intro': '总比打呼噜好', 'url': 'http://s1.dwstatic.com/group1/M00/6A/E5/2a17d8dfe3b8c4f1118ae54332981992.jpg'}, {'add_intro': '最耐热的昆虫', 'url': 'http://s1.dwstatic.com/group1/M00/52/ED/3bab732d8ec878177a9bab6eaa1bac3b.jpg'}]
+            '''
+        # print(res)
+        exit()
+        # pattern = re.compile('上一页</li><li>([\s\S]*?)</li>')
+        # allPage = re.findall(pattern, html)
+        # allPage = (allPage[0]).split('/')[1]
+        # picUrlList = [re.sub(r'(\d+)(?=.htm)', str(e), url) for e in range(1,int(allPage)+1)]
+        # return picUrlList
 
     # process pic url
     async def process(self, session, picUrlList):
@@ -102,8 +128,8 @@ class Crawler:
     # get html text
     async def getHtmlText(self, session, url):
         async with session.get(url, headers=self.headers,timeout=15,verify_ssl=False) as response:
-            return await response.text(encoding='gbk')
-
+            # return await response.text(encoding='utf-8')
+            return await response.read()
 
 
 def test():
@@ -111,13 +137,34 @@ def test():
     import requests
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36',
+        'Referer': 'http://tu.duowan.cn/tag/20721.html',
     }
-    url = 'http://tu.duowan.com/tag/20721.html'   # 冷知识
-    r = requests.get(url, headers=headers)
+    # url = 'http://tu.duowan.com/tag/20721.html'   # 冷知识
+    '''
+    API interface
+    '''
+    urlAPI = 'http://tu.duowan.com/index.php?r=api/ajaxgallerys&page=1&pageSize=500&tag=20721&t=0.9035365604856225&callback=jsonp2'
+    r = requests.get(urlAPI,headers=headers)
     if r.status_code == 200:  # ok
-        html = etree.HTML(r.content.decode('utf-8'))
-        urlList = html.xpath('//*[@class="box"]/a/@href')
+        html = r.content.decode('utf-8')
+        file = 'jsonp.json'
+        isExists = os.path.exists(file)
+        if not isExists:
+            print('Create jsonp file.')
+            with open(file,'w',encoding='utf-8')as f:
+                res=re.findall('jsonp2\((.*?)\)',html)
+                f.write(res[0])                     # save to file
+        print('Use local json')
+        with open(file,'r',encoding='utf-8')as f:
+            data = f.readlines()
+            jsonp = json.loads(data[0])          # read file to json
+        urlList = []
+        gallerys = jsonp['gallerys']
+        for i in gallerys:
+            urlList.append(i['url'])
+        # print(urlList)
+        print('All urlPage is: ', len(urlList))
         c = Crawler(urlList)
         asyncio.run(c.crawl())
         print('OK')
