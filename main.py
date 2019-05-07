@@ -98,7 +98,6 @@ class Crawler:
 
     # download Pic
     async def DownloadImg(self, session, data):
-        print(data['folder'])
         for i in data['res']:
             intro = i['intro']
             picUrl = i['url']
