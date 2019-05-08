@@ -119,20 +119,21 @@ class Crawler:
 def test():
     import requests
 
+    ID = '20721'   # 冷知识
+    ID = '5037'    # 今日囧图
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36',
-        'Referer': 'http://tu.duowan.cn/tag/20721.html',
+        'Referer': 'http://tu.duowan.cn/tag/%s.html'%ID,
     }
-    # url = 'http://tu.duowan.com/tag/20721.html'   # 冷知识
     
-    file = 'jsonp.json'
+    file = '%s.json'%ID
 
     isExists = os.path.exists(file)
     if not isExists:
         '''
         API interface
         '''
-        urlAPI = 'http://tu.duowan.com/index.php?r=api/ajaxgallerys&page=1&pageSize=500&tag=20721&t=0.9035365604856225&callback=jsonp2'
+        urlAPI = 'http://tu.duowan.com/index.php?r=api/ajaxgallerys&page=1&pageSize=500&tag=%s&t=0.9035365604856225&callback=jsonp2'%ID
         r = requests.get(urlAPI,headers=headers)
         if r.status_code == 200:  # ok
             html = r.content.decode('utf-8')
