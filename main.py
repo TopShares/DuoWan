@@ -46,7 +46,6 @@ class Crawler:
             # print(f'Fetch worker {i} is fetching a URL: {url}')
             async with aiohttp.ClientSession() as session:
                 res = await self.fetch(session,url)
-                # picUrlList = await self.process(session, picPageUrlList)
                 await self.DownloadImg(session, res)
 
     async def fetch(self,session, url):
@@ -56,49 +55,26 @@ class Crawler:
         'User-Agent': 'Mozilla/5.0 (Linux; U; Android 8.1.0; zh-cn; OE106 Build/OPM1.171019.026) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/9.2 Mobile Safari/537.36',
         'Referer': url,
         }
-
-        html = await self.getHtmlText(session, newUrl)
-        a = re.findall('imgJson = ([\s\S]*?);', html.decode())
         data = {}
-        if a:
-            jsonp = json.loads(a[0])
-            picInfo = jsonp['picInfo']
-            data['folder']=jsonp['gallery_title']
-            res = []
-            for i in picInfo:
-                tmp = {}
-                tmp['intro'] = i['add_intro']
-                tmp['url'] = i['url']
-                res.append(tmp)
-            data['res'] = res
-        else:
-            with open('error.log','a',encoding='utf-8')as f:
-                f.write(newUrl+ '\n')
+        html = await self.getHtmlText(session, newUrl)
+        if html:
+            a = re.findall('imgJson = ([\s\S]*?);', html.decode())
+            if a:
+                jsonp = json.loads(a[0])
+                picInfo = jsonp['picInfo']
+                data['folder']=jsonp['gallery_title']
+                data['fetchUrl']=url
+                res = []
+                for i in picInfo:
+                    tmp = {}
+                    tmp['intro'] = i['add_intro']
+                    tmp['url'] = i['url']
+                    res.append(tmp)
+                data['res'] = res
+            else:
+                with open('error.log','a',encoding='utf-8')as f:
+                    f.write(newUrl+ '\n')
         return data
-
-    # process pic url
-    async def process(self, session, picUrlList):
-        # print("process URL: " + url);
-        tmp = []
-        for picUrl in picUrlList:
-            # print("process picUrl: " + picUrl);
-            html = await self.getHtmlText(session, picUrl)
-            pattern = re.compile("IMG SRC='([\s\S]*?)'")
-            imgUrl = re.findall(pattern, html)
-            imgUrl = imgUrl[0].replace('''"''', "").replace("+", "")
-
-            parameter_global_js = ({
-            # "server0": "http://n.1whour.com/",
-            # "server": "http://n.1whour.com/",
-            # "m200911d": "http://n.1whour.com/",
-            # "m201001d": "http://n.1whour.com/",
-            'm2007':'http://m8.1whour.com/',
-            })
-            for _i in parameter_global_js:
-                urlPic = imgUrl.replace(str(_i), str(parameter_global_js[_i]))
-                tmp.append(urlPic)
-        return tmp
-
     # download Pic
     async def DownloadImg(self, session, data):
         # print(type(data))
@@ -124,17 +100,23 @@ class Crawler:
                                 f.write(img_response)
                         except Exception as e:
                             print(e)
-                            pass
-
+                            return
+            # done
+            with open('success.log','a')as f:
+                f.write(data['fetchUrl']+'\n')
     # get html text
     async def getHtmlText(self, session, url):
-        async with session.get(url, headers=self.headers,timeout=15,verify_ssl=False) as response:
-            # return await response.text(encoding='utf-8')
-            return await response.read()
-
+        try:
+            async with session.get(url, headers=self.headers,timeout=15) as response:
+                # return await response.text(encoding='utf-8')
+                return await response.read()
+        
+        except asyncio.TimeoutError:
+            pass
+        except Exception as e:
+            print(e)
 
 def test():
-    # main loop
     import requests
 
     headers = {
@@ -142,33 +124,37 @@ def test():
         'Referer': 'http://tu.duowan.cn/tag/20721.html',
     }
     # url = 'http://tu.duowan.com/tag/20721.html'   # 冷知识
-    '''
-    API interface
-    '''
-    urlAPI = 'http://tu.duowan.com/index.php?r=api/ajaxgallerys&page=1&pageSize=500&tag=20721&t=0.9035365604856225&callback=jsonp2'
-    r = requests.get(urlAPI,headers=headers)
-    if r.status_code == 200:  # ok
-        html = r.content.decode('utf-8')
-        file = 'jsonp.json'
-        isExists = os.path.exists(file)
-        if not isExists:
+    
+    file = 'jsonp.json'
+
+    isExists = os.path.exists(file)
+    if not isExists:
+        '''
+        API interface
+        '''
+        urlAPI = 'http://tu.duowan.com/index.php?r=api/ajaxgallerys&page=1&pageSize=500&tag=20721&t=0.9035365604856225&callback=jsonp2'
+        r = requests.get(urlAPI,headers=headers)
+        if r.status_code == 200:  # ok
+            html = r.content.decode('utf-8')
             print('Create jsonp file.')
             with open(file,'w',encoding='utf-8')as f:
                 res=re.findall('jsonp2\((.*?)\)',html)
                 f.write(res[0])                     # save to file
-        print('Use local json')
-        with open(file,'r',encoding='utf-8')as f:
-            data = f.readlines()
-            jsonp = json.loads(data[0])          # read file to json
-        urlList = []
-        gallerys = jsonp['gallerys']
-        for i in gallerys:
-            urlList.append(i['url'])
-        # print(urlList)
-        print('All urlPage is: ', len(urlList))
-        c = Crawler(urlList)
-        asyncio.run(c.crawl())
-        print('OK')
+    with open(file,'r',encoding='utf-8')as f:
+        data = f.readlines()
+        jsonp = json.loads(data[0])          # read file to json
+    urlList = []
+    gallerys = jsonp['gallerys']
+    for i in gallerys:
+        title = i['title']
+        res = re.findall('369',title)         # before 369 is None !
+        if res:
+            break
+        urlList.append(i['url'])
+    print('All urlPage is: ', len(urlList))
+    c = Crawler(urlList)
+    asyncio.run(c.crawl())
+    print('OK')
 
 
 if __name__=='__main__':
