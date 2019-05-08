@@ -59,18 +59,21 @@ class Crawler:
 
         html = await self.getHtmlText(session, newUrl)
         a = re.findall('imgJson = ([\s\S]*?);', html.decode())
-        jsonp = json.loads(a[0])
-        picInfo = jsonp['picInfo']
-        data = {
-            'folder':jsonp['gallery_title']
-        }
-        res = []
-        for i in picInfo:
-            tmp = {}
-            tmp['intro'] = i['add_intro']
-            tmp['url'] = i['url']
-            res.append(tmp)
-        data['res'] = res
+        data = {}
+        if a:
+            jsonp = json.loads(a[0])
+            picInfo = jsonp['picInfo']
+            data['folder']=jsonp['gallery_title']
+            res = []
+            for i in picInfo:
+                tmp = {}
+                tmp['intro'] = i['add_intro']
+                tmp['url'] = i['url']
+                res.append(tmp)
+            data['res'] = res
+        else:
+            with open('error.log','a',encoding='utf-8')as f:
+                f.write(newUrl+ '\n')
         return data
 
     # process pic url
@@ -98,28 +101,30 @@ class Crawler:
 
     # download Pic
     async def DownloadImg(self, session, data):
-        for i in data['res']:
-            intro = i['intro']
-            picUrl = i['url']
-            tmp = picUrl.split('/')[-2:]
-            extend = picUrl.split('.')[-1:]
-            folder = './pic/' + data['folder']
+        # print(type(data))
+        if data:
+            for i in data['res']:
+                intro = i['intro']
+                picUrl = i['url']
+                tmp = picUrl.split('/')[-2:]
+                extend = picUrl.split('.')[-1:]
+                folder = './pic/' + data['folder']
 
-            isExists = os.path.exists(folder)
-            if not isExists:
-                os.makedirs(folder)
-            file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
-            isFileExists = os.path.exists(file)
-            if not isFileExists:
-                async with session.get(picUrl, headers=self.headers, timeout=15, verify_ssl=False) as response:
-                    print('download picUrl: ' + picUrl)
-                    try:
-                        img_response = await response.read()
-                        with open(file, 'wb') as f:
-                            f.write(img_response)
-                    except Exception as e:
-                        print(e)
-                        pass
+                isExists = os.path.exists(folder)
+                if not isExists:
+                    os.makedirs(folder)
+                file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
+                isFileExists = os.path.exists(file)
+                if not isFileExists:
+                    async with session.get(picUrl, headers=self.headers, timeout=15, verify_ssl=False) as response:
+                        print('download picUrl: ' + picUrl)
+                        try:
+                            img_response = await response.read()
+                            with open(file, 'wb') as f:
+                                f.write(img_response)
+                        except Exception as e:
+                            print(e)
+                            pass
 
     # get html text
     async def getHtmlText(self, session, url):
