@@ -87,6 +87,7 @@ class Crawler:
                 folder = './pic/' + data['folder']
 
                 isExists = os.path.exists(folder)
+                print(folder)
                 if not isExists:
                     os.makedirs(folder)
                 file = folder +'/'+ intro + '.'+ extend[0] # tmp[1]
