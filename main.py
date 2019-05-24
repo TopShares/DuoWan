@@ -57,24 +57,22 @@ class Crawler:
         }
         data = {}
         html = await self.getHtmlText(session, newUrl)
-        if html:
+        if html is not None:
             a = re.findall('imgJson = ([\s\S]*?);', html.decode())
-            if a:
-                jsonp = json.loads(a[0])
-                picInfo = jsonp['picInfo']
-                data['folder']=jsonp['gallery_title']
-                data['fetchUrl']=url
-                res = []
-                for i in picInfo:
-                    tmp = {}
-                    tmp['intro'] = i['add_intro']
-                    tmp['url'] = i['url']
-                    res.append(tmp)
-                data['res'] = res
-            else:
-                with open('error.log','a',encoding='utf-8')as f:
-                    f.write(newUrl+ '\n')
+        
+            jsonp = json.loads(a[0])
+            picInfo = jsonp['picInfo']
+            data['folder']=jsonp['gallery_title']
+            data['fetchUrl']=url
+            res = []
+            for i in picInfo:
+                tmp = {}
+                tmp['intro'] = i['add_intro']
+                tmp['url'] = i['url']
+                res.append(tmp)
+            data['res'] = res
         return data
+
     # download Pic
     async def DownloadImg(self, session, data):
         # print(type(data))
@@ -120,8 +118,8 @@ class Crawler:
 def test():
     import requests
 
-    ID = '20721'   # 冷知识
     ID = '5037'    # 今日囧图
+    ID = '20721'   # 冷知识
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36',
         'Referer': 'http://tu.duowan.cn/tag/%s.html'%ID,
@@ -150,9 +148,9 @@ def test():
     for i in gallerys:
         title = i['title']
         res = re.findall('369',title)         # before 369 is None !
+        urlList.append(i['url'])
         if res:
             break
-        urlList.append(i['url'])
     print('All urlPage is: ', len(urlList))
     c = Crawler(urlList)
     asyncio.run(c.crawl())
