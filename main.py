@@ -4,8 +4,7 @@ import os
 import json
 import time
 import aiohttp
-import asyncio
-from lxml import etree
+import asyncio 
 
 class Crawler:
 
